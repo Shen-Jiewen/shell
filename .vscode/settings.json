@@ -1,0 +1,10 @@
+{
+    "files.associations": {
+        "history.h": "c",
+        "command.h": "c",
+        "plugin_manager.h": "c",
+        "array": "c",
+        "string": "c",
+        "string_view": "c"
+    }
+}

@@ -1,6 +1,15 @@
-# 忽略所有的编译文件
+# 忽略 .vscode 配置文件夹
+.vscode/
+
+# 忽略 Linux 下的常见临时文件和可执行文件
+*~
+
+# 忽略 core dump 文件
+core
+
+# 忽略无扩展名的可执行文件
+shell
+
+# 忽略编译生成的目标文件
 *.o
 *.out
-*.class
-*.exe
-*.dll

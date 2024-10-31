@@ -22,8 +22,10 @@ static void reboot_command(int argc, char *argv[]);
 static void clear_command(int argc, char *argv[]);
 static void log_command(int argc, char *argv[]);
 
-// 打印 Shell Logo 和版本信息
+// 打印带颜色的 Shell Logo 和版本信息
 static void print_logo(Shell *self) {
+    // 蓝色输出 Logo
+    self->pal->uart_send("\033[34m");  // 设置蓝色
     self->pal->uart_send("\n");
     self->pal->uart_send(" ____  _          _ _ \n");
     self->pal->uart_send("/ ___|| |__   ___| | |\n");
@@ -32,14 +34,78 @@ static void print_logo(Shell *self) {
     self->pal->uart_send("|____/|_| |_|\\___|_|_|\n");
     self->pal->uart_send("\n");
 
+    // 绿色输出版本信息
     char version_info[64];
     snprintf(version_info, sizeof(version_info), "Embedded Shell v%s\n", SHELL_VERSION);
+    self->pal->uart_send("\033[32m");  // 设置绿色
     self->pal->uart_send(version_info);
+
+    // 重置颜色
+    self->pal->uart_send("\033[0m");
 }
+
+// 验证密码函数
+static bool verify_password(Shell *self, const char *password) {
+    return strcmp(password, DEFAULT_PASSWORD) == 0;
+}
+
+// 登录功能：获取并验证用户输入的密码
+static bool login(Shell *self) {
+    char password_input[32];
+    int attempts = 3;
+
+    while (attempts > 0) {
+        // 每次新输入时显示提示符
+        self->pal->uart_send("Enter password: ");
+
+        int idx = 0;
+        while (true) {
+            int ch = self->pal->get_char();
+            if (ch == KEY_ENTER) {
+                password_input[idx] = '\0';
+                break;
+            } else if (ch == KEY_BACKSPACE && idx > 0) {
+                idx--;
+                self->pal->uart_send("\b \b");
+            } else if (idx < sizeof(password_input) - 1) {
+                password_input[idx++] = ch;
+                self->pal->uart_send("*"); // 显示掩码
+            }
+        }
+
+        self->pal->uart_send("\n");
+
+        if (self->verify_password(self, password_input)) {
+            self->log_manager->log(LOG_LEVEL_INFO, "Access granted.");
+            return true;
+        } else {
+            attempts--;
+            char message[50];
+            snprintf(message, sizeof(message), "Incorrect password. %d attempt(s) remaining.", attempts);
+            self->log_manager->log(LOG_LEVEL_WARN, message);
+
+            // 提示重新输入
+            if (attempts > 0) {
+                self->pal->uart_send("Please try again.\n");
+            }
+        }
+    }
+
+    self->log_manager->log(LOG_LEVEL_ERROR, "Access denied. Login failed after 3 attempts.");
+    return false;
+}
+
 
 // 初始化 Shell
 static void shell_init(Shell *self) {
     self->pal->init();
+
+    // 执行登录过程
+    if (!login(self)) {
+        // 登录失败，退出程序
+        exit(0);
+    }
+
     print_logo(self);
 
     // 初始化历史记录和命令
@@ -55,7 +121,7 @@ static void shell_init(Shell *self) {
     self->command_manager->register_alias(self->command_manager, "rb", "reboot");
 
     // 设置日志级别并记录初始化完成日志
-    self->log_manager->set_level(LOG_LEVEL_INFO);
+    self->log_manager->set_level(LOG_LEVEL_NONE);
     self->log_manager->log(LOG_LEVEL_INFO, "Shell initialized successfully.");
 }
 
@@ -108,7 +174,6 @@ static void process_input(Shell *self) {
 
         if (strcmp(self->input_buffer, "exit") == 0) {
             self->log_manager->log(LOG_LEVEL_WARN, "Shell is exiting.");
-            self->pal->uart_send("Exiting shell...\n");
             exit(0);
         }
 
@@ -135,6 +200,7 @@ static void process_input(Shell *self) {
         }
     }
 }
+
 
 // 事件处理器
 static void shell_handle_event(Shell *self, ShellEvent event, int data) {
@@ -238,6 +304,7 @@ Shell* create_shell() {
     shell->pal = get_pal_interface();
     shell->log_manager = get_log_manager();  // 获取日志管理器
     shell->init = shell_init;
+    shell->verify_password = verify_password;  // 设置验证函数
     shell->loop = shell_loop;
     shell->register_command = shell_register_command;
     shell->handle_event = shell_handle_event;

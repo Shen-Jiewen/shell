@@ -1,11 +1,27 @@
+# Compiler and Flags
 CC = gcc
 CFLAGS = -Wall -Iinclude
 
-SRC = src/main.c src/shell.c src/command.c src/history.c src/pal.c src/log.c
-all: shell
+# Directories
+SRC_DIR = src
+INCLUDE_DIR = include
 
-shell: $(SRC)
-	$(CC) $(CFLAGS) -o shell $(SRC)
+# Source Files
+SRC = $(wildcard $(SRC_DIR)/*.c)
 
+# Target executable
+TARGET = shell
+
+# Default rule
+all: $(TARGET)
+
+# Compile all source files directly to create the executable
+$(TARGET): $(SRC)
+	$(CC) $(CFLAGS) -o $@ $^
+
+# Clean up generated files
 clean:
-	rm -f shell
+	rm -f $(TARGET)
+
+# Phony targets to avoid conflicts with files named "all" or "clean"
+.PHONY: all clean

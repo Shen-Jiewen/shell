@@ -16,13 +16,27 @@ static bool log_is_enabled(LogLevel level) {
     return level <= log_manager.current_level;
 }
 
+// 获取日志级别的颜色
+static const char* get_color_code(LogLevel level) {
+    switch (level) {
+        case LOG_LEVEL_INFO:
+            return "\033[32m";  // 绿色
+        case LOG_LEVEL_WARN:
+            return "\033[33m";  // 黄色
+        case LOG_LEVEL_ERROR:
+            return "\033[31m";  // 红色
+        default:
+            return "\033[0m";   // 默认颜色
+    }
+}
+
 // 打印日志信息
 static void log_message(LogLevel level, const char *message) {
     if (!log_is_enabled(level)) {
         return;  // 当前日志级别未启用
     }
 
-    // 获取日志前缀
+    // 获取日志前缀和颜色
     const char *prefix;
     switch (level) {
         case LOG_LEVEL_INFO:
@@ -38,11 +52,12 @@ static void log_message(LogLevel level, const char *message) {
             prefix = "[UNKNOWN]";
     }
 
-    // 发送日志信息到 PAL 层的 UART 或终端
+    // 发送带颜色的日志信息到 PAL 层的 UART 或终端
     PalInterface *pal = get_pal_interface();
+    pal->uart_send(get_color_code(level)); // 设置颜色
     pal->uart_send(prefix);
     pal->uart_send(message);
-    pal->uart_send("\n");
+    pal->uart_send("\033[0m\n"); // 重置颜色
 }
 
 // 获取单例日志管理器

@@ -8,6 +8,7 @@
 
 #define SHELL_VERSION "1.0.0"
 #define INPUT_BUFFER_SIZE 128
+#define DEFAULT_PASSWORD "1234" // 这是示例密码
 
 typedef enum {
     EVENT_NONE,
@@ -40,6 +41,8 @@ typedef struct Shell {
     // 事件处理器
     void (*handle_event)(struct Shell *self, ShellEvent event, int data);
 
+    // 验证密码函数
+    bool (*verify_password)(struct Shell *self, const char *password); 
 } Shell;
 
 // 创建并初始化 Shell 实例

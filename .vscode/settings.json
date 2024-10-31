@@ -11,6 +11,8 @@
         "pal_config.h": "c",
         "pal.h": "c",
         "string.h": "c",
-        "stdlib.h": "c"
+        "stdlib.h": "c",
+        "log.h": "c",
+        "stdbool.h": "c"
     }
 }

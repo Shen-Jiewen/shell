@@ -4,6 +4,7 @@
 #include "command.h"
 #include "history.h"
 #include "pal.h"
+#include "log.h"  // 引入日志头文件
 
 #define SHELL_VERSION "1.0.0"
 #define INPUT_BUFFER_SIZE 128
@@ -14,6 +15,7 @@ typedef enum {
     EVENT_KEY_BACKSPACE,
     EVENT_KEY_UP,
     EVENT_KEY_DOWN,
+    EVENT_KEY_TAB,
     EVENT_KEY_CHAR
 } ShellEvent;
 
@@ -21,6 +23,8 @@ typedef struct Shell {
     CommandManager *command_manager;   // 命令管理器
     HistoryManager *history_manager;   // 历史记录管理器
     PalInterface *pal;                 // 平台抽象层接口指针
+    LogManager *log_manager;           // 日志管理器
+
     char input_buffer[INPUT_BUFFER_SIZE]; // 输入缓冲区
     int buffer_length;                 // 当前输入缓冲区的长度
 

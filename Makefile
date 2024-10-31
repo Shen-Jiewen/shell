@@ -1,7 +1,7 @@
 CC = gcc
 CFLAGS = -Wall -Iinclude
 
-SRC = src/main.c src/shell.c src/command.c src/history.c src/pal.c
+SRC = src/main.c src/shell.c src/command.c src/history.c src/pal.c src/log.c
 all: shell
 
 shell: $(SRC)

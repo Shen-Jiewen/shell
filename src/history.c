@@ -1,45 +1,68 @@
 #include <string.h>
+#include <stdlib.h>
 #include "history.h"
 
-#define HISTORY_SIZE 10
-#define COMMAND_LENGTH 128
+// 单例的历史记录管理器
+static HistoryManager history_manager;
 
-static char history[HISTORY_SIZE][COMMAND_LENGTH];
-static int history_count = 0;
-static int current_index = -1;
-
-void history_init() {
-    history_count = 0;
-    current_index = -1;
-    memset(history, 0, sizeof(history));
+// 初始化历史记录管理器
+void history_init(HistoryManager* self) {
+    self->total_count = 0;
+    self->current_index = -1;
+    memset(self->history, 0, sizeof(self->history));
 }
 
-void history_add(const char *command) {
-    if (strlen(command) > 0) {
-        strncpy(history[history_count % HISTORY_SIZE], command, COMMAND_LENGTH - 1);
-        history_count++;
-        current_index = history_count;
+// 添加命令到历史记录
+int history_add(HistoryManager* self, const char *command) {
+    if (command == NULL || strlen(command) == 0) {
+        return -1; // 无效命令，添加失败
     }
+
+    // 循环写入历史记录
+    strncpy(self->history[self->total_count % HISTORY_SIZE], command, COMMAND_LENGTH - 1);
+    self->history[self->total_count % HISTORY_SIZE][COMMAND_LENGTH - 1] = '\0'; // 确保以 '\0' 结尾
+    self->total_count++;
+    self->current_index = self->total_count; // 更新索引指向最新记录
+    return 0; // 添加成功
 }
 
-const char *history_get_previous() {
-    if (history_count == 0) {
-        return NULL;
+// 获取上一个历史记录
+const char* history_get_previous(HistoryManager* self) {
+    if (self->total_count == 0) {
+        return NULL; // 没有历史记录
     }
-    if (current_index > 0) {
-        current_index--;
+
+    // 如果当前索引等于总计条数，表示第一次获取，则指向最后一个命令
+    if (self->current_index == self->total_count) {
+        self->current_index--; // 第一次访问，指向最后一条
+    } else if (self->current_index > 0) {
+        // 后续访问，将索引前移，指向上一个历史记录
+        self->current_index--;
     }
-    return history[current_index % HISTORY_SIZE];
+
+    return self->history[self->current_index % HISTORY_SIZE];
 }
 
-const char *history_get_next() {
-    if (history_count == 0) {
-        return NULL;
+// 获取下一个历史记录
+const char* history_get_next(HistoryManager* self) {
+    if (self->total_count == 0) {
+        return NULL; // 没有历史记录
     }
-    if (current_index < history_count - 1) {
-        current_index++;
-    } else {
-        return "";
-    }
-    return history[current_index % HISTORY_SIZE];
+
+    if (self->current_index < self->total_count - 1) {
+        self->current_index++;
+        return self->history[self->current_index % HISTORY_SIZE];
+    } 
+    return ""; // 已经是最新命令，返回空字符串
+}
+
+// 获取单例历史管理器的指针
+HistoryManager* get_history_manager() {
+    // 初始化函数指针
+    history_manager.init = history_init;
+    history_manager.add = history_add;
+    history_manager.get_previous = history_get_previous;
+    history_manager.get_next = history_get_next;
+
+    return &history_manager;
 }

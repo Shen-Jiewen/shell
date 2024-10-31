@@ -1,13 +1,11 @@
 CC = gcc
 CFLAGS = -Wall -Iinclude
-TARGET = shell
 
-SRC = src/main.c src/uart.c src/shell.c src/command.c src/history.c 
+SRC = src/main.c src/shell.c src/command.c src/history.c src/pal.c
+all: shell
 
-all: $(TARGET)
-
-$(TARGET): $(SRC)
-	$(CC) $(CFLAGS) -o $(TARGET) $(SRC)
+shell: $(SRC)
+	$(CC) $(CFLAGS) -o shell $(SRC)
 
 clean:
-	rm -f $(TARGET)
+	rm -f shell

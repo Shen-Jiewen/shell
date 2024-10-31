@@ -1,89 +1,99 @@
 #include <stdio.h>
 #include <string.h>
+#include <stdlib.h>
 #include "command.h"
-#include "uart.h"
+#include "pal.h"
 
-#define MAX_COMMANDS 10
-#define MAX_ALIASES 10
+// 静态全局的命令管理器单例
+static CommandManager command_manager = { .command_count = 0, .alias_count = 0 };
 
-typedef struct {
-    char name[32];
-    command_func_t func;
-} command_entry_t;
-
-typedef struct {
-    char alias[32];
-    char command_name[32];
-} alias_entry_t;
-
-static command_entry_t command_table[MAX_COMMANDS];
-static alias_entry_t alias_table[MAX_ALIASES];
-static int command_count = 0;
-static int alias_count = 0;
-
-void register_command(const char *name, command_func_t func) {
-    if (command_count < MAX_COMMANDS) {
-        strncpy(command_table[command_count].name, name, sizeof(command_table[command_count].name) - 1);
-        command_table[command_count].func = func;
-        command_count++;
-    } else {
-        uart_send("Error: Command table full.\n");
+// 注册命令到命令管理器
+int command_register_command(CommandManager* self, const char *name, CommandFunction func) {
+    if (self->command_count >= MAX_COMMANDS) {
+        return COMMAND_ERROR_TABLE_FULL; // 错误：命令表已满
     }
+
+    Command *cmd = &self->command_table[self->command_count++];
+    strncpy(cmd->name, name, sizeof(cmd->name) - 1);
+    cmd->name[sizeof(cmd->name) - 1] = '\0'; // 确保以 '\0' 结尾
+    cmd->function = func;
+    return COMMAND_SUCCESS; // 成功
 }
 
-void register_alias(const char *alias, const char *command_name) {
-    if (alias_count < MAX_ALIASES) {
-        strncpy(alias_table[alias_count].alias, alias, sizeof(alias_table[alias_count].alias) - 1);
-        strncpy(alias_table[alias_count].command_name, command_name, sizeof(alias_table[alias_count].command_name) - 1);
-        alias_count++;
-    } else {
-        uart_send("Error: Alias table full.\n");
+// 注册别名到别名表
+int command_register_alias(CommandManager* self, const char *alias, const char *command_name) {
+    if (self->alias_count >= MAX_ALIASES) {
+        return ALIAS_ERROR_TABLE_FULL; // 错误：别名表已满
     }
+
+    AliasEntry *entry = &self->alias_table[self->alias_count++];
+    strncpy(entry->alias, alias, sizeof(entry->alias) - 1);
+    entry->alias[sizeof(entry->alias) - 1] = '\0';
+    strncpy(entry->command_name, command_name, sizeof(entry->command_name) - 1);
+    entry->command_name[sizeof(entry->command_name) - 1] = '\0';
+    return COMMAND_SUCCESS; // 成功
 }
 
-static const char *resolve_alias(const char *alias) {
-    for (int i = 0; i < alias_count; i++) {
-        if (strcmp(alias_table[i].alias, alias) == 0) {
-            return alias_table[i].command_name;
+// 查找别名
+static const char *command_resolve_alias(CommandManager* self, const char *alias) {
+    for (int i = 0; i < self->alias_count; i++) {
+        if (strcmp(self->alias_table[i].alias, alias) == 0) {
+            return self->alias_table[i].command_name;
         }
     }
     return alias; // 如果找不到别名，返回原始命令
 }
 
-void execute_command(const char *input) {
-    char *argv[10];   // 支持最多10个参数
+// 执行命令
+int command_execute_command(CommandManager* self, const char *input) {
+    char *argv[MAX_ARGC];
     int argc = 0;
 
-    char input_copy[128];
+    char input_copy[MAX_INPUT_SIZE];
     strncpy(input_copy, input, sizeof(input_copy) - 1);
+    input_copy[sizeof(input_copy) - 1] = '\0'; // 确保以 '\0' 结尾
+
     char *token = strtok(input_copy, " ");
-    while (token != NULL && argc < 10) {
+    while (token != NULL && argc < MAX_ARGC) {
         argv[argc++] = token;
         token = strtok(NULL, " ");
     }
 
     if (argc == 0) {
-        return; // 没有输入有效命令
+        return COMMAND_ERROR_NO_INPUT; // 错误：没有有效命令输入
     }
 
-    const char *command_name = resolve_alias(argv[0]);
-    for (int i = 0; i < command_count; i++) {
-        if (strcmp(command_table[i].name, command_name) == 0) {
-            command_table[i].func(argc, argv);
-            return;
+    const char *command_name = command_resolve_alias(self, argv[0]);
+    for (int i = 0; i < self->command_count; i++) {
+        if (strcmp(self->command_table[i].name, command_name) == 0) {
+            self->command_table[i].function(argc, argv);
+            return COMMAND_SUCCESS; // 成功
         }
     }
 
-    uart_send("Error: Command not found.\n");
+    return COMMAND_ERROR_NOT_FOUND; // 错误：命令未找到
 }
 
-int get_command_count() {
-    return command_count;
+// 获取已注册的命令数
+int command_get_command_count(CommandManager* self) {
+    return self->command_count;
 }
 
-const char *get_command_name(int index) {
-    if (index >= 0 && index < command_count) {
-        return command_table[index].name;
+// 获取指定索引处的命令名称
+const char *command_get_command_name(CommandManager* self, int index) {
+    if (index >= 0 && index < self->command_count) {
+        return self->command_table[index].name;
     }
-    return NULL;
+    return NULL; // 错误：索引超出范围
+}
+
+// 获取单例命令管理器的指针
+CommandManager* get_command_manager() {
+    command_manager.register_command = command_register_command;
+    command_manager.register_alias = command_register_alias;
+    command_manager.execute_command = command_execute_command;
+    command_manager.get_command_count = command_get_command_count;
+    command_manager.get_command_name = command_get_command_name;
+
+    return &command_manager;
 }

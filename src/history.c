@@ -32,11 +32,11 @@ const char* history_get_previous(HistoryManager* self) {
         return NULL; // 没有历史记录
     }
 
-    // 如果当前索引等于总计条数，表示第一次获取，则指向最后一个命令
-    if (self->current_index == self->total_count) {
-        self->current_index--; // 第一次访问，指向最后一条
+    // 如果当前索引等于总记录数，初始化为最后一条
+    if (self->current_index >= self->total_count) {
+        self->current_index = self->total_count - 1;
     } else if (self->current_index > 0) {
-        // 后续访问，将索引前移，指向上一个历史记录
+        // 非初次访问时，前移索引，指向上一个历史记录
         self->current_index--;
     }
 
@@ -49,11 +49,16 @@ const char* history_get_next(HistoryManager* self) {
         return NULL; // 没有历史记录
     }
 
-    if (self->current_index < self->total_count - 1) {
-        self->current_index++;
-        return self->history[self->current_index % HISTORY_SIZE];
-    } 
-    return ""; // 已经是最新命令，返回空字符串
+    // 当已到达最新命令（底部）时，将 current_index 重置为 total_count，
+    // 这样下一次调用 history_get_previous 时将从最新命令开始
+    if (self->current_index >= self->total_count - 1) {
+        self->current_index = self->total_count; // 设置为总数，表示在底部
+        return ""; // 已经是最新命令，返回空字符串
+    }
+
+    // 向前移动一条记录
+    self->current_index++;
+    return self->history[self->current_index % HISTORY_SIZE];
 }
 
 // 获取单例历史管理器的指针

@@ -2,11 +2,17 @@
 #include <string.h>
 #include <stdbool.h>
 #include <stdlib.h>
+#include <unistd.h>
+#include <stdbool.h>
 #include "shell.h"
 #include "command.h"
 #include "history.h"
 #include "pal.h"
 #include "log.h"
+#if defined(ENABLE_FREERTOS) && (ENABLE_FREERTOS == 1)
+#include "FreeRTOS.h"
+#include "task.h"
+#endif
 
 // 键码定义
 #define KEY_UP 65
@@ -23,6 +29,7 @@ static void list_command(int argc, char *argv[]);
 static void reboot_command(int argc, char *argv[]);
 static void clear_command(int argc, char *argv[]);
 static void log_command(int argc, char *argv[]);
+static void ps_command(int argc, char *argv[]);
 
 // 打印带颜色的 Shell Logo 和版本信息
 static void print_logo(Shell *self) {
@@ -117,13 +124,14 @@ static void shell_init(Shell *self) {
     self->command_manager->register_command(self->command_manager, "reboot", reboot_command);
     self->command_manager->register_command(self->command_manager, "clear", clear_command);
     self->command_manager->register_command(self->command_manager, "log", log_command);
+    self->command_manager->register_command(self->command_manager, "ps", ps_command);
 
     // 注册别名
     self->command_manager->register_alias(self->command_manager, "ls", "list");
     self->command_manager->register_alias(self->command_manager, "rb", "reboot");
 
     // 设置日志级别并记录初始化完成日志
-    self->log_manager->set_level(LOG_LEVEL_NONE);
+    self->log_manager->set_level(LOG_LEVEL_INFO);
     self->log_manager->log(LOG_LEVEL_INFO, "Shell initialized successfully.");
 }
 
@@ -424,3 +432,46 @@ static void log_command(int argc, char *argv[]) {
         log_manager->log(LOG_LEVEL_ERROR, "Usage: log -level <0|1|2>");
     }
 }
+
+static void ps_command(int argc, char *argv[]) {
+    LogManager *log_manager = get_log_manager();
+
+    #if defined(ENABLE_FREERTOS) && (ENABLE_FREERTOS == 1) && \
+        defined(configUSE_TRACE_FACILITY) && (configUSE_TRACE_FACILITY == 1) && \
+        defined(configUSE_STATS_FORMATTING_FUNCTIONS) && (configUSE_STATS_FORMATTING_FUNCTIONS == 1)
+
+        char buffer[1024];          // 用于存储任务信息的缓冲区
+        const int refresh_delay = 500000;  // 刷新间隔（500毫秒）
+        PalInterface *pal = get_pal_interface();
+
+        log_manager->log(LOG_LEVEL_INFO, "Press 'q' to stop the task list refresh and return to shell.");
+
+        while (true) {
+            // 检查用户输入是否为退出键
+            if (pal->is_key_pressed() && pal->get_char() == 'q') {
+                log_manager->log(LOG_LEVEL_INFO, "\nExiting task list view...");
+                break;
+            }
+
+            // 清除屏幕并回到顶部位置
+            log_manager->log(LOG_LEVEL_INFO, "\033[2J\033[H");
+
+            // 输出标题
+            log_manager->log(LOG_LEVEL_INFO, "Task Name\tState\tPriority\tStack\tTask Number");
+            log_manager->log(LOG_LEVEL_INFO, "-------------------------------------------------");
+
+            // 获取和显示任务列表
+            vTaskList(buffer);
+            log_manager->log(LOG_LEVEL_INFO, buffer);
+
+            // 延迟以控制刷新速度
+            usleep(refresh_delay);
+        }
+
+    #else
+        log_manager->log(LOG_LEVEL_ERROR, "Error: FreeRTOS task list feature is disabled.");
+        log_manager->log(LOG_LEVEL_ERROR, "Ensure ENABLE_FREERTOS, configUSE_TRACE_FACILITY, and configUSE_STATS_FORMATTING_FUNCTIONS are defined and set to 1.");
+    #endif
+}
+
+

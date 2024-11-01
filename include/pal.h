@@ -1,6 +1,8 @@
 #ifndef PAL_H
 #define PAL_H
 
+#define ENABLE_FREERTOS 0
+
 // 平台抽象层接口，用于不同平台的硬件抽象
 typedef struct {
     void (*init)();                  // 平台初始化函数

@@ -11,6 +11,8 @@
 // 键码定义
 #define KEY_UP 65
 #define KEY_DOWN 66
+#define KEY_LEFT 68
+#define KEY_RIGHT 67
 #define KEY_ENTER 10
 #define KEY_BACKSPACE 127
 #define KEY_TAB '\t'
@@ -198,6 +200,11 @@ static void process_input(Shell *self) {
                     break;
             }
         }
+        
+        // 重置缓冲区和游标位置
+        self->buffer_length = 0;
+        self->cursor_position = 0;
+        memset(self->input_buffer, 0, sizeof(self->input_buffer));
     }
 }
 
@@ -251,10 +258,41 @@ static void shell_handle_event(Shell *self, ShellEvent event, int data) {
             break;
         }
 
+        case EVENT_KEY_LEFT:
+            if (self->cursor_position > 0) {
+                self->cursor_position--;
+                self->pal->uart_send("\b"); // 移动光标向左
+            }
+            break;
+
+        case EVENT_KEY_RIGHT:
+            if (self->cursor_position < self->buffer_length) {
+                self->pal->uart_send((char[]){self->input_buffer[self->cursor_position], '\0'});
+                self->cursor_position++;
+            }
+            break;
+
         case EVENT_KEY_CHAR:
             if (self->buffer_length < sizeof(self->input_buffer) - 1) {
-                self->input_buffer[self->buffer_length++] = (char)data;
-                self->pal->uart_send((char[]){(char)data, '\0'});
+                // 将字符插入到游标位置，并将缓冲区后续字符后移
+                memmove(&self->input_buffer[self->cursor_position + 1],
+                        &self->input_buffer[self->cursor_position],
+                        self->buffer_length - self->cursor_position);
+
+                self->input_buffer[self->cursor_position] = (char)data; // 插入字符
+                self->buffer_length++;
+                self->cursor_position++;
+
+                // 重新显示缓冲区内容
+                self->pal->uart_send("\r");  // 回到行首
+                self->pal->uart_send("shell> ");
+                self->pal->uart_send(self->input_buffer);
+
+                // 移动光标到新的位置
+                int move_left = self->buffer_length - self->cursor_position;
+                for (int i = 0; i < move_left; i++) {
+                    self->pal->uart_send("\b");
+                }
             }
             break;
 
@@ -288,6 +326,10 @@ static void shell_loop(Shell *self) {
                     self->handle_event(self, EVENT_KEY_UP, 0);
                 } else if (ch == KEY_DOWN) {
                     self->handle_event(self, EVENT_KEY_DOWN, 0);
+                } else if (ch == KEY_LEFT) {
+                    self->handle_event(self, EVENT_KEY_LEFT, 0);
+                } else if (ch == KEY_RIGHT) {
+                    self->handle_event(self, EVENT_KEY_RIGHT, 0);
                 }
             } else {
                 self->handle_event(self, EVENT_KEY_CHAR, ch);
@@ -309,12 +351,14 @@ Shell* create_shell() {
     shell->register_command = shell_register_command;
     shell->handle_event = shell_handle_event;
     shell->buffer_length = 0;
+    shell->cursor_position = 0;               // 初始化游标位置
 
     // 初始化 Shell，包括命令和历史管理器
     shell->init(shell);
 
     return shell;
 }
+
 
 // ========== 命令实现区域 ==========
 

@@ -16,6 +16,8 @@ typedef enum {
     EVENT_KEY_BACKSPACE,
     EVENT_KEY_UP,
     EVENT_KEY_DOWN,
+    EVENT_KEY_LEFT,
+    EVENT_KEY_RIGHT,
     EVENT_KEY_TAB,
     EVENT_KEY_CHAR
 } ShellEvent;
@@ -28,6 +30,7 @@ typedef struct Shell {
 
     char input_buffer[INPUT_BUFFER_SIZE]; // 输入缓冲区
     int buffer_length;                 // 当前输入缓冲区的长度
+    int cursor_position;               // 当前游标位置
 
     // 初始化 shell，包括平台、命令和历史管理器
     void (*init)(struct Shell *self);
